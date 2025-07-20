@@ -43,3 +43,9 @@ async def submit_score(payload: dict):
         insert = leaderboard.insert().values(username=username, score=score)
         await database.execute(insert)
     return {"success": True}
+
+@router.delete("/leaderboard")
+async def delete_all_scores():
+    query = leaderboard.delete()
+    await database.execute(query)
+    return {"message": "All scores have been deleted"}
