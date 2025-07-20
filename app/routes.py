@@ -17,6 +17,15 @@ async def get_leaderboard(top: int = 100):
     query = leaderboard.select().order_by(leaderboard.c.score.desc()).limit(top)
     return await database.fetch_all(query)
 
+@router.get("/leaderboard/{username}")
+async def get_user_score(username: str):
+    query = leaderboard.select().where(leaderboard.c.username == username)
+    user_score = await database.fetch_one(query)
+    if user_score is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_score
+
+
 @router.post("/leaderboard")
 async def submit_score(payload: dict):
     username = payload.get("username")
