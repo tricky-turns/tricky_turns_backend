@@ -12,12 +12,12 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-@router.get("/api/leaderboard")
+@router.get("/leaderboard")
 async def get_leaderboard(top: int = 100):
     query = leaderboard.select().order_by(leaderboard.c.score.desc()).limit(top)
     return await database.fetch_all(query)
 
-@router.post("/api/leaderboard")
+@router.post("/leaderboard")
 async def submit_score(payload: dict):
     username = payload.get("username")
     score = payload.get("score")
