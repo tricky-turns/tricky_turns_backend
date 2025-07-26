@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from app.database import database
 from app.model import leaderboard
+from sqlalchemy import func
+
 
 router = APIRouter()
 
@@ -43,6 +45,27 @@ async def submit_score(payload: dict):
         insert = leaderboard.insert().values(username=username, score=score)
         await database.execute(insert)
     return {"success": True}
+
+@router.get("/leaderboard/rank")
+async def get_user_rank(username: str):
+    # Get the user's score from the leaderboard table
+    user_query = leaderboard.select().where(leaderboard.c.username == username)
+    user = await database.fetch_one(user_query)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_score = user["score"]
+
+    # Count how many users have a strictly higher score
+    rank_query = leaderboard.select().with_only_columns([func.count()]).where(leaderboard.c.score > user_score)
+    higher_count = await database.fetch_val(rank_query)
+
+    return {
+        "username": username,
+        "score": user_score,
+        "rank": higher_count + 1
+    }
 
 @router.delete("/leaderboard")
 async def delete_all_scores():
