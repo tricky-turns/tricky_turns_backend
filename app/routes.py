@@ -1,3 +1,4 @@
+from app.auth import verify_token
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import database
 from app.model import leaderboard
