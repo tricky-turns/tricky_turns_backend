@@ -13,9 +13,9 @@ ALGORITHMS = ["ES256"]
 security = HTTPBearer()
 
 async def verify_token(request: Request):
+    auth_header = request.headers.get("Authorization")
     credentials = await security(request)
     token = credentials.credentials
-    auth_header = request.headers.get("Authorization")
     print(f"🔐 Received Authorization header: {auth_header}")
 
     try:
