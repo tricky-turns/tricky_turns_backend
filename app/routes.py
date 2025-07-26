@@ -22,6 +22,7 @@ async def get_leaderboard(top: int = 100):
 
 @router.get("/leaderboard/{username}")
 async def get_user_score(username: str, payload: dict = Depends(verify_token)):
+    print(f"📊 Serving rank for user: {payload['username']}")
     query = leaderboard.select().where(leaderboard.c.username == username)
     user_score = await database.fetch_one(query)
     if user_score is None:
