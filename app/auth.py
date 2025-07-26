@@ -15,9 +15,12 @@ security = HTTPBearer()
 async def verify_token(request: Request):
     credentials = await security(request)
     token = credentials.credentials
+    auth_header = request.headers.get("Authorization")
+    print(f"🔐 Received Authorization header: {auth_header}")
 
     try:
         payload = jwt.decode(token, PI_AUTH_PUBLIC_KEY, algorithms=ALGORITHMS)
+        print(f"✅ Token decoded successfully: {payload}")
         username = payload.get("user", {}).get("username")
         if not username:
             raise ValueError("Missing username")
