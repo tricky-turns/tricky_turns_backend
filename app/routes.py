@@ -77,6 +77,7 @@ async def delete_all_scores():
 
 
 @router.get("/auth-test")
-async def auth_test(payload: dict = Depends(verify_token)):
-    print("🔧 /api/auth-test hit with payload:", payload)
-    return { "message": "OK", "user": payload.get("username") }
+async def auth_test(request: Request):
+    print("HEADERS:", request.headers)
+    return {"headers": dict(request.headers)}
+
