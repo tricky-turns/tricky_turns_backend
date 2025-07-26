@@ -14,16 +14,16 @@ security = HTTPBearer()
 
 async def verify_token(request: Request):
     auth_header = request.headers.get("Authorization")
-    credentials = await security(request)
-    token = credentials.credentials
-    print(f"🔐 Received Authorization header: {auth_header}")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
 
+    token = auth_header[7:]
     try:
-        payload = jwt.decode(token, PI_AUTH_PUBLIC_KEY, algorithms=ALGORITHMS)
-        print(f"✅ Token decoded successfully: {payload}")
-        username = payload.get("user", {}).get("username")
-        if not username:
-            raise ValueError("Missing username")
-        return { "username": username }
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid Pi token")
+        decoded = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"], audience=None)  # audience=None if you're not validating it
+        print("DECODED PAYLOAD:", decoded)
+        return decoded
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        print("JWT decode failed:", e)
+        raise HTTPException(status_code=403, detail="Invalid token")
