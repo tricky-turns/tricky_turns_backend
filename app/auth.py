@@ -1,29 +1,48 @@
-from fastapi import Request, HTTPException
-from fastapi.security import HTTPBearer
-from jose import jwt, JWTError
+import os
+import base64
+import json
+import logging
+import requests
+from fastapi import Request, HTTPException, status
+from fastapi.security.utils import get_authorization_scheme_param
 
-# This public key is provided by Pi Network and used to verify Pi login tokens
-PI_AUTH_PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7ZfHb0o1McFSu/5zYKn2h1JHw3Bq
-gacx0l1NxmxFzjjEqWyT2ejGL5v5do7Ooz/NQ2zvW9OnNUX65xgeIJJe9g==
------END PUBLIC KEY-----"""
+PUBLIC_KEY_ENDPOINT = "https://oidc.vercel.app/.well-known/jwks.json"
+EXPECTED_ISSUER = "https://oidc.vercel.app/tricky-s-projects"
+EXPECTED_AUDIENCE = "https://vercel.com/tricky-s-projects"
 
-ALGORITHMS = ["ES256"]
+def get_public_key(kid: str):
+    keys = requests.get(PUBLIC_KEY_ENDPOINT).json()["keys"]
+    for key in keys:
+        if key["kid"] == kid:
+            return key
+    raise Exception("Public key not found")
 
-security = HTTPBearer()
+def verify_token(request: Request):
+    authorization: str = request.headers.get("authorization")
+    scheme, token = get_authorization_scheme_param(authorization)
 
-async def verify_token(request: Request):
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    if not authorization or scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header",
+        )
 
-    token = auth_header[7:]
     try:
-        decoded = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"], audience=None)  # audience=None if you're not validating it
-        print("DECODED PAYLOAD:", decoded)
-        return decoded
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        print("JWT decode failed:", e)
-        raise HTTPException(status_code=403, detail="Invalid token")
+        header_b64 = token.split(".")[0]
+        header = json.loads(base64.urlsafe_b64decode(header_b64 + "=="))
+        key = get_public_key(header["kid"])
+
+        from jose import jwt
+
+        payload = jwt.decode(
+            token,
+            key=jwt.construct_rsa_public_key(key),
+            algorithms=["RS256"],
+            audience=EXPECTED_AUDIENCE,
+            issuer=EXPECTED_ISSUER,
+        )
+
+        return payload
+    except Exception as e:
+        logging.exception("Token verification failed")
+        raise HTTPException(status_code=401, detail="Invalid token")

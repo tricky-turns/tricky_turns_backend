@@ -1,85 +1,70 @@
+from fastapi import APIRouter, Depends, HTTPException
 from app.auth import verify_token
-from fastapi import APIRouter, HTTPException, Depends, Request
-from app.database import database
-from app.model import leaderboard
-from sqlalchemy import func
+from app.model import leaderboard, database
+from sqlalchemy import func, select
 
-
-router = APIRouter()
-
-@router.on_event("startup")
-async def startup():
-    await database.connect()
-
-@router.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
+router = APIRouter(prefix="/api")
 
 @router.get("/leaderboard")
 async def get_leaderboard(top: int = 100):
     query = leaderboard.select().order_by(leaderboard.c.score.desc()).limit(top)
     return await database.fetch_all(query)
 
-@router.get("/leaderboard/{username}")
-async def get_user_score(username: str, payload: dict = Depends(verify_token)):
-    print(f"📊 Serving rank for user: {payload['username']}")
-    print("Username from path:", username)
-    print("Owner ID from token:", payload.get("owner_id"))
-    query = leaderboard.select().where(leaderboard.c.username == username)
-    user_score = await database.fetch_one(query)
-    if user_score is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user_score
+@router.get("/leaderboard/me")
+async def get_my_score(user: dict = Depends(verify_token)):
+    owner_id = user.get("owner_id")
+    print(f"📌 Authenticated request for score of: {owner_id}")
 
+    query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    result = await database.fetch_one(query)
 
-@router.post("/leaderboard")
-async def submit_score(payload: dict):
-    username = payload.get("username")
-    score = payload.get("score")
-    if not username or not isinstance(score, int):
-        raise HTTPException(status_code=400, detail="Invalid payload")
+    if not result:
+        raise HTTPException(status_code=404, detail="No score found for this user")
 
-    query = leaderboard.select().where(leaderboard.c.username == username)
-    existing = await database.fetch_one(query)
-    if existing:
-        if score > existing["score"]:
-            update = leaderboard.update().where(leaderboard.c.username == username).values(score=score)
-            await database.execute(update)
-    else:
-        insert = leaderboard.insert().values(username=username, score=score)
-        await database.execute(insert)
-    return {"success": True}
+    return result
 
 @router.get("/leaderboard/rank")
-async def get_user_rank(username: str):
-    # Get the user's score from the leaderboard table
-    user_query = leaderboard.select().where(leaderboard.c.username == username)
-    user = await database.fetch_one(user_query)
+async def get_my_rank(user: dict = Depends(verify_token)):
+    owner_id = user.get("owner_id")
+    print(f"📌 Authenticated request for rank of: {owner_id}")
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user_query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    user_score = await database.fetch_one(user_query)
 
-    user_score = user["score"]
+    if not user_score:
+        raise HTTPException(status_code=404, detail="No score found for this user")
 
-    # Count how many users have a strictly higher score
-    rank_query = leaderboard.select().with_only_columns([func.count()]).where(leaderboard.c.score > user_score)
-    higher_count = await database.fetch_val(rank_query)
+    rank_query = select([func.count()]).select_from(leaderboard).where(
+        leaderboard.c.score > user_score["score"]
+    )
+    rank = await database.fetch_val(rank_query)
 
     return {
-        "username": username,
-        "score": user_score,
-        "rank": higher_count + 1
+        "rank": rank + 1,
+        "score": user_score["score"],
     }
 
-@router.delete("/leaderboard")
-async def delete_all_scores():
-    query = leaderboard.delete()
-    await database.execute(query)
-    return {"message": "All scores have been deleted"}
+@router.post("/leaderboard")
+async def submit_score(data: dict, user: dict = Depends(verify_token)):
+    owner_id = user.get("owner_id")
+    score = data.get("score")
 
+    if score is None or not isinstance(score, int):
+        raise HTTPException(status_code=400, detail="Invalid score data")
 
-@router.get("/auth-test")
-async def auth_test(request: Request):
-    print("HEADERS:", request.headers)
-    return {"headers": dict(request.headers)}
+    print(f"📌 Submitting score {score} for user: {owner_id}")
 
+    existing_query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    existing = await database.fetch_one(existing_query)
+
+    if existing:
+        if score > existing["score"]:
+            update_query = leaderboard.update().where(
+                leaderboard.c.username == owner_id
+            ).values(score=score)
+            await database.execute(update_query)
+    else:
+        insert_query = leaderboard.insert().values(username=owner_id, score=score)
+        await database.execute(insert_query)
+
+    return {"message": "Score submitted"}
