@@ -74,3 +74,9 @@ async def delete_all_scores():
     query = leaderboard.delete()
     await database.execute(query)
     return {"message": "All scores have been deleted"}
+
+
+@router.get("/api/auth-test")
+async def auth_test(payload: dict = Depends(verify_token)):
+    print("🔧 /api/auth-test hit with payload:", payload)
+    return { "message": "OK", "user": payload.get("username") }
