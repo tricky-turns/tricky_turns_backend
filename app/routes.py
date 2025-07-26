@@ -1,9 +1,8 @@
 from app.auth import verify_token
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.database import database
 from app.model import leaderboard
 from sqlalchemy import func
-from requests import Request
 
 
 router = APIRouter()
