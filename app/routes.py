@@ -48,23 +48,28 @@ async def get_my_rank(user: dict = Depends(verify_token)):
 async def submit_score(data: dict, user: dict = Depends(verify_token)):
     owner_id = user.get("owner_id")
     score = data.get("score")
+    username = data.get("username")  # ✅ receive username from frontend
 
-    if score is None or not isinstance(score, int):
-        raise HTTPException(status_code=400, detail="Invalid score data")
+    if score is None or not isinstance(score, int) or not username:
+        raise HTTPException(status_code=400, detail="Invalid score or username")
 
-    print(f"📌 Submitting score {score} for user: {owner_id}")
+    print(f"📌 Submitting score {score} for user: {owner_id} ({username})")
 
-    existing_query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    existing_query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
     existing = await database.fetch_one(existing_query)
 
     if existing:
         if score > existing["score"]:
             update_query = leaderboard.update().where(
-                leaderboard.c.username == owner_id
-            ).values(score=score)
+                leaderboard.c.owner_id == owner_id
+            ).values(score=score, username=username)  # ✅ update username as well
             await database.execute(update_query)
     else:
-        insert_query = leaderboard.insert().values(username=owner_id, score=score)
+        insert_query = leaderboard.insert().values(
+            owner_id=owner_id,
+            username=username,
+            score=score
+        )
         await database.execute(insert_query)
 
     return {"message": "Score submitted"}

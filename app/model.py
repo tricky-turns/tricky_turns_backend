@@ -7,6 +7,8 @@ leaderboard = Table(
     "leaderboard",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("username", String, unique=True),
+    Column("owner_id", String, unique=True),   # ✅ add this
+    Column("username", String),                # ✅ not unique — usernames can change
     Column("score", Integer),
 )
+
