@@ -3,7 +3,7 @@ from app.auth import verify_token
 from app.model import leaderboard, database
 from sqlalchemy import func, select
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 @router.get("/leaderboard")
 async def get_leaderboard(top: int = 100):
