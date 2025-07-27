@@ -15,7 +15,7 @@ async def get_my_score(user: dict = Depends(verify_token)):
     owner_id = user.get("owner_id")
     print(f"📌 Authenticated request for score of: {owner_id}")
 
-    query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
     result = await database.fetch_one(query)
 
     if not result:
@@ -28,7 +28,7 @@ async def get_my_rank(user: dict = Depends(verify_token)):
     owner_id = user.get("owner_id")
     print(f"📌 Authenticated request for rank of: {owner_id}")
 
-    user_query = leaderboard.select().where(leaderboard.c.username == owner_id)
+    user_query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
     user_score = await database.fetch_one(user_query)
 
     if not user_score:
