@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth import verify_token
 from app.model import leaderboard, database
 from sqlalchemy import func, select
@@ -73,3 +73,13 @@ async def submit_score(data: dict, user: dict = Depends(verify_token)):
         await database.execute(insert_query)
 
     return {"message": "Score submitted"}
+
+@router.delete("/leaderboard/all", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_leaderboard_entries():
+    """
+    Danger: This deletes ALL leaderboard entries. 
+    Secure this route before using in production!
+    """
+    delete_query = leaderboard.delete()
+    await database.execute(delete_query)
+    return None  # 204 No Content
