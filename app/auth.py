@@ -1,8 +1,11 @@
-# app/auth.py
+# auth.py
 
 from fastapi import APIRouter, HTTPException, Header
 import httpx
 import logging
+from app.database import database
+from app.model import users
+from datetime import datetime
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -36,13 +39,29 @@ async def verify_token(authorization: str = Header(None)):
     if not username:
         logger.error("UserDTO missing username field from Pi")
         raise HTTPException(status_code=401, detail="Invalid Pi user data")
+    
+    # --- Begin new user auto-creation logic ---
+    query = users.select().where(users.c.username == username)
+    user = await database.fetch_one(query)
+    if not user:
+        # Create user record
+        await database.execute(
+            users.insert().values(
+                username=username,
+                created_at=datetime.utcnow(),
+                last_login=datetime.utcnow(),
+                is_banned=False
+            )
+        )
+        logger.info(f"Created new Pi user in DB: {username}")
+    else:
+        # Update last_login for returning users (optional)
+        await database.execute(
+            users.update().where(users.c.username == username).values(
+                last_login=datetime.utcnow()
+            )
+        )
+    # --- End new user auto-creation logic ---
+
     logger.info(f"Verified Pi user: {username}")
     return {"username": username}
-
-@router.get("/pi-auth/verify", summary="Verify Pi Network access token")
-async def verify_pi_token(authorization: str = Header(None)):
-    user = await verify_token(authorization)
-    return {
-        "message": "Pi token is valid",
-        "username": user["username"]
-    }
