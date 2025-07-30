@@ -8,3 +8,4 @@ python-jose
 requests
 psycopg2-binary
 bcrypt
+alembic
