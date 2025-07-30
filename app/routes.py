@@ -5,8 +5,9 @@ from app.auth import verify_token
 from app.model import (
     users, game_modes, leaderboard_scores, score_history, game_sessions,
     shop_items, purchases, contests, contest_entries, support_tickets,
-    promo_codes, feature_toggles, database
+    promo_codes, feature_toggles
 )
+from app.database import database
 from sqlalchemy import func, select
 from datetime import datetime
 
