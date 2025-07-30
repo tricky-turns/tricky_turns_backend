@@ -7,4 +7,4 @@ python-dotenv==1.0.1
 python-jose
 requests
 psycopg2-binary
-bcrypt
+bcryp
