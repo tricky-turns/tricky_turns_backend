@@ -1,0 +1,203 @@
+# app/admin_routes.py
+
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from app.admin_auth import get_current_admin
+from app.model import (
+    users, admins, game_modes, leaderboard_scores, score_history, game_sessions,
+    shop_items, purchases, contests, contest_entries, admin_audit_log,
+    support_tickets, promo_codes, feature_toggles, database
+)
+from datetime import datetime
+
+router = APIRouter()
+
+### -- USER & ADMIN MANAGEMENT ---
+
+@router.get("/admin/users")
+async def admin_list_users(admin=Depends(get_current_admin)):
+    return await database.fetch_all(users.select())
+
+@router.post("/admin/users/ban")
+async def admin_ban_user(data: dict = Body(...), admin=Depends(get_current_admin)):
+    username = data.get("username")
+    if not username:
+        raise HTTPException(status_code=400, detail="Missing username")
+    await database.execute(users.update().where(users.c.username == username).values(is_banned=True))
+    await database.execute(admin_audit_log.insert().values(
+        admin_username=admin["username"], action="ban_user",
+        target_table="users", notes=f"Banned {username}", timestamp=datetime.utcnow()
+    ))
+    return {"message": f"User {username} banned"}
+
+@router.post("/admin/users/unban")
+async def admin_unban_user(data: dict = Body(...), admin=Depends(get_current_admin)):
+    username = data.get("username")
+    await database.execute(users.update().where(users.c.username == username).values(is_banned=False))
+    await database.execute(admin_audit_log.insert().values(
+        admin_username=admin["username"], action="unban_user",
+        target_table="users", notes=f"Unbanned {username}", timestamp=datetime.utcnow()
+    ))
+    return {"message": f"User {username} unbanned"}
+
+@router.get("/admin/admins")
+async def admin_list_admins(admin=Depends(get_current_admin)):
+    return await database.fetch_all(admins.select())
+
+### -- GAME MODES ---
+
+@router.get("/admin/game_modes")
+async def admin_list_modes(admin=Depends(get_current_admin)):
+    return await database.fetch_all(game_modes.select())
+
+@router.post("/admin/game_modes")
+async def admin_create_mode(data: dict = Body(...), admin=Depends(get_current_admin)):
+    res = await database.execute(game_modes.insert().values(
+        name=data["name"],
+        description=data.get("description", ""),
+        is_active=data.get("is_active", True),
+        created_at=datetime.utcnow()
+    ))
+    return {"id": res, "message": "Mode created"}
+
+@router.put("/admin/game_modes/{mode_id}")
+async def admin_update_mode(mode_id: int, data: dict = Body(...), admin=Depends(get_current_admin)):
+    await database.execute(game_modes.update().where(game_modes.c.id == mode_id).values(**data))
+    return {"message": "Mode updated"}
+
+@router.delete("/admin/game_modes/{mode_id}")
+async def admin_delete_mode(mode_id: int, admin=Depends(get_current_admin)):
+    await database.execute(game_modes.delete().where(game_modes.c.id == mode_id))
+    return {"message": "Mode deleted"}
+
+### -- LEADERBOARDS & SCORES ---
+
+@router.get("/admin/leaderboards")
+async def admin_list_leaderboards(admin=Depends(get_current_admin)):
+    return await database.fetch_all(leaderboard_scores.select())
+
+@router.get("/admin/score_history")
+async def admin_score_history(admin=Depends(get_current_admin), username: str = None):
+    query = score_history.select()
+    if username:
+        query = query.where(score_history.c.username == username)
+    return await database.fetch_all(query)
+
+@router.get("/admin/game_sessions")
+async def admin_sessions(admin=Depends(get_current_admin), username: str = None):
+    query = game_sessions.select()
+    if username:
+        query = query.where(game_sessions.c.username == username)
+    return await database.fetch_all(query)
+
+### -- SHOP & PURCHASES ---
+
+@router.get("/admin/shop/items")
+async def admin_list_shop_items(admin=Depends(get_current_admin)):
+    return await database.fetch_all(shop_items.select())
+
+@router.post("/admin/shop/items")
+async def admin_create_shop_item(data: dict = Body(...), admin=Depends(get_current_admin)):
+    res = await database.execute(shop_items.insert().values(**data))
+    return {"id": res, "message": "Shop item created"}
+
+@router.put("/admin/shop/items/{item_id}")
+async def admin_update_shop_item(item_id: int, data: dict = Body(...), admin=Depends(get_current_admin)):
+    await database.execute(shop_items.update().where(shop_items.c.id == item_id).values(**data))
+    return {"message": "Shop item updated"}
+
+@router.delete("/admin/shop/items/{item_id}")
+async def admin_delete_shop_item(item_id: int, admin=Depends(get_current_admin)):
+    await database.execute(shop_items.delete().where(shop_items.c.id == item_id))
+    return {"message": "Shop item deleted"}
+
+@router.get("/admin/purchases")
+async def admin_list_purchases(admin=Depends(get_current_admin)):
+    return await database.fetch_all(purchases.select())
+
+### -- CONTESTS ---
+
+@router.get("/admin/contests")
+async def admin_list_contests(admin=Depends(get_current_admin)):
+    return await database.fetch_all(contests.select())
+
+@router.post("/admin/contests")
+async def admin_create_contest(data: dict = Body(...), admin=Depends(get_current_admin)):
+    res = await database.execute(contests.insert().values(**data))
+    return {"id": res, "message": "Contest created"}
+
+@router.put("/admin/contests/{contest_id}")
+async def admin_update_contest(contest_id: int, data: dict = Body(...), admin=Depends(get_current_admin)):
+    await database.execute(contests.update().where(contests.c.id == contest_id).values(**data))
+    return {"message": "Contest updated"}
+
+@router.delete("/admin/contests/{contest_id}")
+async def admin_delete_contest(contest_id: int, admin=Depends(get_current_admin)):
+    await database.execute(contests.delete().where(contests.c.id == contest_id))
+    return {"message": "Contest deleted"}
+
+@router.get("/admin/contest_entries")
+async def admin_list_contest_entries(admin=Depends(get_current_admin), contest_id: int = None):
+    query = contest_entries.select()
+    if contest_id:
+        query = query.where(contest_entries.c.contest_id == contest_id)
+    return await database.fetch_all(query)
+
+### -- SUPPORT / FEEDBACK ---
+
+@router.get("/admin/support_tickets")
+async def admin_list_support_tickets(admin=Depends(get_current_admin)):
+    return await database.fetch_all(support_tickets.select())
+
+@router.post("/admin/support_tickets/{ticket_id}/close")
+async def admin_close_support_ticket(ticket_id: int, admin=Depends(get_current_admin)):
+    await database.execute(support_tickets.update().where(support_tickets.c.id == ticket_id).values(status="closed"))
+    return {"message": "Ticket closed"}
+
+### -- PROMO CODES ---
+
+@router.get("/admin/promo_codes")
+async def admin_list_promo_codes(admin=Depends(get_current_admin)):
+    return await database.fetch_all(promo_codes.select())
+
+@router.post("/admin/promo_codes")
+async def admin_create_promo_code(data: dict = Body(...), admin=Depends(get_current_admin)):
+    res = await database.execute(promo_codes.insert().values(**data))
+    return {"id": res, "message": "Promo code created"}
+
+@router.put("/admin/promo_codes/{promo_id}")
+async def admin_update_promo_code(promo_id: int, data: dict = Body(...), admin=Depends(get_current_admin)):
+    await database.execute(promo_codes.update().where(promo_codes.c.id == promo_id).values(**data))
+    return {"message": "Promo code updated"}
+
+@router.delete("/admin/promo_codes/{promo_id}")
+async def admin_delete_promo_code(promo_id: int, admin=Depends(get_current_admin)):
+    await database.execute(promo_codes.delete().where(promo_codes.c.id == promo_id))
+    return {"message": "Promo code deleted"}
+
+### -- FEATURE TOGGLES ---
+
+@router.get("/admin/feature_toggles")
+async def admin_list_feature_toggles(admin=Depends(get_current_admin)):
+    return await database.fetch_all(feature_toggles.select())
+
+@router.post("/admin/feature_toggles")
+async def admin_create_feature_toggle(data: dict = Body(...), admin=Depends(get_current_admin)):
+    res = await database.execute(feature_toggles.insert().values(**data))
+    return {"id": res, "message": "Feature toggle created"}
+
+@router.put("/admin/feature_toggles/{toggle_id}")
+async def admin_update_feature_toggle(toggle_id: int, data: dict = Body(...), admin=Depends(get_current_admin)):
+    await database.execute(feature_toggles.update().where(feature_toggles.c.id == toggle_id).values(**data))
+    return {"message": "Feature toggle updated"}
+
+@router.delete("/admin/feature_toggles/{toggle_id}")
+async def admin_delete_feature_toggle(toggle_id: int, admin=Depends(get_current_admin)):
+    await database.execute(feature_toggles.delete().where(feature_toggles.c.id == toggle_id))
+    return {"message": "Feature toggle deleted"}
+
+### -- ADMIN AUDIT LOG ---
+
+@router.get("/admin/audit_log")
+async def admin_audit_log_view(admin=Depends(get_current_admin)):
+    return await database.fetch_all(admin_audit_log.select())
+

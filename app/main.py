@@ -6,6 +6,8 @@ from app.database import database
 from sqlalchemy.ext.asyncio import create_async_engine
 import os
 from app.auth import router as auth_router
+from app.admin_auth import router as admin_auth_router
+from app.admin_routes import router as admin_router
 
 
 app = FastAPI()
