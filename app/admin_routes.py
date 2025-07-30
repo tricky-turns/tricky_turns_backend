@@ -5,10 +5,10 @@ from app.admin_auth import get_current_admin
 from app.model import (
     users, admins, game_modes, leaderboard_scores, score_history, game_sessions,
     shop_items, purchases, contests, contest_entries, admin_audit_log,
-    support_tickets, promo_codes, feature_toggles, database
+    support_tickets, promo_codes, feature_toggles
 )
 from datetime import datetime
-
+from app.database import database
 router = APIRouter()
 
 ### -- USER & ADMIN MANAGEMENT ---
