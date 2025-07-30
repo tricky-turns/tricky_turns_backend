@@ -5,8 +5,6 @@ from app.model import metadata
 from app.database import database
 from sqlalchemy.ext.asyncio import create_async_engine
 import os
-from app.auth import router as auth_router
-
 
 app = FastAPI()
 
@@ -41,5 +39,3 @@ def read_root():
 
 # Include API routes
 app.include_router(router, prefix="/api")
-app.include_router(auth_router, prefix="/auth")
-

@@ -1,59 +1,48 @@
-import base64
-import json
+# auth.py
+
+from fastapi import APIRouter, HTTPException, Header, Depends, status, Request
+import requests
 import logging
 
-from fastapi import Request, HTTPException, status
-from fastapi.security.utils import get_authorization_scheme_param
+router = APIRouter()
+logger = logging.getLogger(__name__)
 
-# Set these when you upgrade to OIDC
-EXPECTED_AUDIENCE = "https://vercel.com/tricky-s-projects"  # or your app's OIDC aud
-EXPECTED_ISSUER = "https://oidc.vercel.com/tricky-s-projects"  # or whatever Pi provides
+# This is the reusable dependency to verify the Pi access token and return user info.
+async def verify_token(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("Missing or invalid Authorization header")
+        raise HTTPException(status_code=401, detail="Missing or invalid access token")
+    token = authorization.split("Bearer ")[1]
 
-def get_public_key(kid: str):
-    # Placeholder — fill in later when OIDC is enabled
-    raise NotImplementedError("Public key lookup not implemented")
-
-def verify_token(request: Request):
-    authorization: str = request.headers.get("authorization")
-    scheme, token = get_authorization_scheme_param(authorization)
-
-    if not authorization or scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Authorization header"
+    try:
+        pi_response = requests.get(
+            "https://api.minepi.com/v2/me",
+            headers={"Authorization": f"Bearer {token}"}
         )
+    except requests.RequestException as e:
+        logger.error(f"Error connecting to Pi Platform API: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify token")
 
-    # Check for JWT (OIDC) format: eyJ...
-    if token.startswith("eyJ"):
-        try:
-            header_b64 = token.split(".")[0]
-            padding = '=' * (-len(header_b64) % 4)
-            header_bytes = base64.urlsafe_b64decode(header_b64 + padding)
-            header = json.loads(header_bytes.decode("utf-8"))
+    if pi_response.status_code == 401:
+        logger.info("Pi token verification failed (invalid token)")
+        raise HTTPException(status_code=401, detail="Invalid Pi access token")
 
-            from jose import jwt
-            key = get_public_key(header["kid"])
+    data = pi_response.json()
+    username = data.get("username")
+    uid = data.get("uid")
 
-            payload = jwt.decode(
-                token,
-                key=jwt.construct_rsa_public_key(key),
-                algorithms=["RS256"],
-                audience=EXPECTED_AUDIENCE,
-                issuer=EXPECTED_ISSUER
-            )
+    if not uid or not username:
+        logger.error("UserDTO missing expected fields from Pi")
+        raise HTTPException(status_code=401, detail="Invalid Pi user data")
+    logger.info(f"Verified Pi user: {username} (UID: {uid})")
+    # Return a dict containing user info, mimicking what your app expects
+    return {"owner_id": uid, "username": username}
 
-            return {
-                "owner_id": payload.get("sub"),
-                "username": payload.get("username")
-            }
-
-        except Exception as e:
-            logging.exception("❌ JWT verification failed")
-            raise HTTPException(status_code=401, detail="Invalid JWT token")
-
-    # Fallback: Legacy Pi token
-    print(f"⚠️ Legacy Pi token used: {token[:10]}... (not verifiable)")
+@router.get("/pi-auth/verify", summary="Verify Pi Network access token")
+async def verify_pi_token(authorization: str = Header(None)):
+    user = await verify_token(authorization)
     return {
-        "owner_id": token,  # Use the raw token string as a unique user ID
-        "username": None    # Frontend must send username separately
+        "message": "Pi token is valid",
+        "username": user["username"],
+        "uid": user["owner_id"]
     }
