@@ -1,7 +1,7 @@
 # routes.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.auth import verify_token  # <- uses new dependency
+from app.auth import verify_token
 from app.model import leaderboard, database
 from sqlalchemy import func, select
 
@@ -14,9 +14,9 @@ async def get_leaderboard(top: int = 100):
 
 @router.get("/leaderboard/me")
 async def get_my_score(user: dict = Depends(verify_token)):
-    owner_id = user.get("owner_id")
-    print(f"📌 Authenticated request for score of: {owner_id}")
-    query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
+    username = user.get("username")
+    print(f"📌 Authenticated request for score of: {username}")
+    query = leaderboard.select().where(leaderboard.c.username == username)
     result = await database.fetch_one(query)
     if not result:
         raise HTTPException(status_code=404, detail="No score found for this user")
@@ -24,9 +24,9 @@ async def get_my_score(user: dict = Depends(verify_token)):
 
 @router.get("/leaderboard/rank")
 async def get_my_rank(user: dict = Depends(verify_token)):
-    owner_id = user.get("owner_id")
-    print(f"📌 Authenticated request for rank of: {owner_id}")
-    user_query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
+    username = user.get("username")
+    print(f"📌 Authenticated request for rank of: {username}")
+    user_query = leaderboard.select().where(leaderboard.c.username == username)
     user_score = await database.fetch_one(user_query)
     if not user_score:
         raise HTTPException(status_code=404, detail="No score found for this user")
@@ -41,23 +41,22 @@ async def get_my_rank(user: dict = Depends(verify_token)):
 
 @router.post("/leaderboard")
 async def submit_score(data: dict, user: dict = Depends(verify_token)):
-    owner_id = user.get("owner_id")
+    username = user.get("username")
     score = data.get("score")
-    username = data.get("username")
-    if score is None or not isinstance(score, int) or not username:
-        raise HTTPException(status_code=400, detail="Invalid score or username")
-    print(f"📌 Submitting score {score} for user: {owner_id} ({username})")
-    existing_query = leaderboard.select().where(leaderboard.c.owner_id == owner_id)
+    # Ignore username from client for identity—use only verified username
+    if score is None or not isinstance(score, int):
+        raise HTTPException(status_code=400, detail="Invalid score")
+    print(f"📌 Submitting score {score} for user: {username}")
+    existing_query = leaderboard.select().where(leaderboard.c.username == username)
     existing = await database.fetch_one(existing_query)
     if existing:
         if score > existing["score"]:
             update_query = leaderboard.update().where(
-                leaderboard.c.owner_id == owner_id
-            ).values(score=score, username=username)
+                leaderboard.c.username == username
+            ).values(score=score)
             await database.execute(update_query)
     else:
         insert_query = leaderboard.insert().values(
-            owner_id=owner_id,
             username=username,
             score=score
         )

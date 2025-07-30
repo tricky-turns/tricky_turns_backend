@@ -2,4 +2,4 @@ gitignore
 .env
 *venv*
 utils
-.app copy
+.app*
