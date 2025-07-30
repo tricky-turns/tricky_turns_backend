@@ -7,7 +7,7 @@ services:
       alembic upgrade head &&
       uvicorn app.main:app --host 0.0.0.0 --port 10000
     runtime: python
-    pythonVersion: 3.11
+    pythonVersion: 3.11.1
    envVars:
   - key: DATABASE_URL
     value: postgresql://tricky_turns_db_user:HJM1bhUH4ihfrFkT3y7l5FqRP05LpB2e@dpg-d1u4fv49c44c73ck9nfg-a.ohio-postgres.render.com/tricky_turns_db
