@@ -44,4 +44,6 @@ def read_root():
 # Include API routes
 app.include_router(router, prefix="/api")
 app.include_router(auth_router, prefix="/auth")
+app.include_router(admin_router, prefix="/admin")
+app.include_router(admin_auth_router, prefix="/admin-auth")
 

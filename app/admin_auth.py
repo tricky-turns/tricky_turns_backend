@@ -1,7 +1,8 @@
 # app/admin_auth.py
 
 from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends, Request
-from app.model import admins, database, admin_audit_log
+from app.model import admins, admin_audit_log
+from app.database import database
 from app.utils.password import hash_password, verify_password
 from datetime import datetime
 import secrets
