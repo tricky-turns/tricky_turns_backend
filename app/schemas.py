@@ -1,6 +1,6 @@
 # app/schemas.py
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 from typing import Optional, List
 from datetime import datetime
 
@@ -143,8 +143,7 @@ class LeaderboardEntryOut(BaseModel):
     achieved_at: datetime
 
 # --- Leaderboard List (array) ---
-class LeaderboardListOut(BaseModel):
-    __root__: List[LeaderboardEntryOut]
+class LeaderboardListOut(RootModel[List[LeaderboardEntryOut]]): pass
 
 # --- Score History ---
 class ScoreHistoryEntryOut(BaseModel):
@@ -157,8 +156,8 @@ class ScoreHistoryEntryOut(BaseModel):
     ip_address: str = None
     device_info: str = None
 
-class ScoreHistoryListOut(BaseModel):
-    __root__: List[ScoreHistoryEntryOut]
+class ScoreHistoryListOut(RootModel[List[ScoreHistoryEntryOut]]): pass
+
 
 
 class FeatureToggleOut(BaseModel):
