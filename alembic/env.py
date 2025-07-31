@@ -16,6 +16,9 @@ config = context.config
 
 # --- ENV VAR OVERRIDE FOR DB URL ---
 database_url = os.getenv("DATABASE_URL")
+if database_url and database_url.startswith("postgresql+asyncpg://"):
+    database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+config.set_main_option("sqlalchemy.url", database_url)
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
