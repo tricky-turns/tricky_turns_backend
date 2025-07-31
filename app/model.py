@@ -169,3 +169,12 @@ feature_toggles = Table(
     Column("enabled", Boolean, default=False),
     Column("description", Text)
 )
+
+
+admin_sessions = Table(
+    "admin_sessions", metadata,
+    Column("id", String, primary_key=True),  # session_id, use secrets.token_urlsafe
+    Column("admin_id", Integer, ForeignKey("admins.id"), nullable=False),
+    Column("created_at", DateTime, default=datetime.utcnow),
+    Column("expires_at", DateTime)
+)

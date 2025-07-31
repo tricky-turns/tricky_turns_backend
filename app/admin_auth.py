@@ -1,15 +1,14 @@
 # app/admin_auth.py
 
 from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends, Request
-from app.model import admins, admin_audit_log
+from app.model import admins, admin_audit_log, admin_sessions  # Note: admin_sessions now imported from model.py
 from app.database import database
 from app.utils.password import hash_password, verify_password
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
 
 router = APIRouter()
 ADMIN_SESSION_COOKIE = "admin_session"
-admin_sessions = {}
 
 def log_admin_action(admin_username, action, target_table, target_id=None, notes=None):
     return admin_audit_log.insert().values(
@@ -21,10 +20,18 @@ def log_admin_action(admin_username, action, target_table, target_id=None, notes
         timestamp=datetime.utcnow()
     )
 
-def get_current_admin(session_id: str = Cookie(None)):
-    if session_id and session_id in admin_sessions:
-        return admin_sessions[session_id]
-    raise HTTPException(status_code=401, detail="Not authenticated as admin")
+async def get_current_admin(session_id: str = Cookie(None)):
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated as admin")
+    # Lookup session in DB, check expiry
+    query = admin_sessions.select().where(admin_sessions.c.id == session_id)
+    session = await database.fetch_one(query)
+    if not session or (session["expires_at"] and session["expires_at"] < datetime.utcnow()):
+        raise HTTPException(status_code=401, detail="Session expired or invalid")
+    admin = await database.fetch_one(admins.select().where(admins.c.id == session["admin_id"]))
+    if not admin:
+        raise HTTPException(status_code=401, detail="Admin not found")
+    return {"id": admin["id"], "username": admin["username"]}
 
 @router.post("/admin/login")
 async def admin_login(data: dict, response: Response):
@@ -38,17 +45,28 @@ async def admin_login(data: dict, response: Response):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not admin["is_active"]:
         raise HTTPException(status_code=403, detail="Inactive admin account")
-    # Create session
     session_id = secrets.token_urlsafe(32)
-    admin_sessions[session_id] = {"id": admin["id"], "username": admin["username"]}
-    response.set_cookie(ADMIN_SESSION_COOKIE, session_id, httponly=True, max_age=86400)
+    now = datetime.utcnow()
+    expires_at = now + timedelta(days=1)
+    await database.execute(
+        admin_sessions.insert().values(
+            id=session_id,
+            admin_id=admin["id"],
+            created_at=now,
+            expires_at=expires_at
+        )
+    )
+    response.set_cookie(
+        ADMIN_SESSION_COOKIE, session_id,
+        httponly=True, max_age=86400, secure=True, samesite="strict"
+    )
     await database.execute(log_admin_action(admin["username"], "login", "admins"))
     return {"message": "Logged in", "admin": admin["username"]}
 
 @router.post("/admin/logout")
 async def admin_logout(response: Response, session_id: str = Cookie(None), admin=Depends(get_current_admin)):
-    if session_id and session_id in admin_sessions:
-        del admin_sessions[session_id]
+    if session_id:
+        await database.execute(admin_sessions.delete().where(admin_sessions.c.id == session_id))
     response.delete_cookie(ADMIN_SESSION_COOKIE)
     await database.execute(log_admin_action(admin["username"], "logout", "admins"))
     return {"message": "Logged out"}

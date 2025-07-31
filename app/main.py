@@ -12,10 +12,13 @@ from app.admin_routes import router as admin_router
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = [
+    "https://tricky-turns-frontend-dev.vercel.app/"  # keep for dev if needed
+]
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Consider tightening for production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,8 +32,6 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 @app.on_event("startup")
 async def startup():
     await database.connect()
-    async with engine.begin() as conn:
-        await conn.run_sync(metadata.create_all)
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -44,6 +45,6 @@ def read_root():
 # Include API routes
 app.include_router(router, prefix="/api")
 app.include_router(auth_router, prefix="/auth")
-app.include_router(admin_auth_router, prefix="/admin")
+app.include_router(admin_auth_router, prefix="/admin-auth")
 app.include_router(admin_router, prefix="/admin")
 
