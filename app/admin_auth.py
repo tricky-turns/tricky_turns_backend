@@ -58,7 +58,7 @@ async def admin_login(data: dict, response: Response):
     )
     response.set_cookie(
         ADMIN_SESSION_COOKIE, session_id,
-        httponly=True, max_age=86400, secure=True, samesite="strict"
+        httponly=True, max_age=86400, secure=True, samesite="lax"
     )
     await database.execute(log_admin_action(admin["username"], "login", "admins"))
     return {"message": "Logged in", "admin": admin["username"]}
