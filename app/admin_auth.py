@@ -20,7 +20,7 @@ def log_admin_action(admin_username, action, target_table, target_id=None, notes
         timestamp=datetime.utcnow()
     )
 
-async def get_current_admin(session_id: str = Cookie(None)):
+async def get_current_admin(session_id: str = Cookie(None, alias="admin_session")):
     print("Session ID from cookie:", session_id)
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated as admin")
