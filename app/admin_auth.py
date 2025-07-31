@@ -33,7 +33,7 @@ async def get_current_admin(session_id: str = Cookie(None)):
         raise HTTPException(status_code=401, detail="Admin not found")
     return {"id": admin["id"], "username": admin["username"]}
 
-@router.post("/admin/login")
+@router.post("/login")
 async def admin_login(data: dict, response: Response):
     username = data.get("username")
     password = data.get("password")
@@ -63,7 +63,7 @@ async def admin_login(data: dict, response: Response):
     await database.execute(log_admin_action(admin["username"], "login", "admins"))
     return {"message": "Logged in", "admin": admin["username"]}
 
-@router.post("/admin/logout")
+@router.post("/logout")
 async def admin_logout(response: Response, session_id: str = Cookie(None), admin=Depends(get_current_admin)):
     if session_id:
         await database.execute(admin_sessions.delete().where(admin_sessions.c.id == session_id))
@@ -71,6 +71,6 @@ async def admin_logout(response: Response, session_id: str = Cookie(None), admin
     await database.execute(log_admin_action(admin["username"], "logout", "admins"))
     return {"message": "Logged out"}
 
-@router.get("/admin/me")
+@router.get("/me")
 async def admin_me(admin=Depends(get_current_admin)):
     return {"admin": admin["username"]}
