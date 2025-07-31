@@ -62,13 +62,13 @@ async def admin_login(data: dict, response: Response):
     )
     response.set_cookie(
         ADMIN_SESSION_COOKIE, session_id,
-        httponly=True, max_age=86400, secure=True, samesite="lax"
+        httponly=True, max_age=86400, secure=True, samesite="none"
     )
     await database.execute(log_admin_action(admin["username"], "login", "admins"))
     return {"message": "Logged in", "admin": admin["username"]}
 
 @router.post("/logout")
-async def admin_logout(response: Response, session_id: str = Cookie(None), admin=Depends(get_current_admin)):
+async def admin_logout(response: Response, session_id: str = Cookie(None, alias="admin_session"), admin=Depends(get_current_admin)):
     if session_id:
         await database.execute(admin_sessions.delete().where(admin_sessions.c.id == session_id))
     response.delete_cookie(ADMIN_SESSION_COOKIE)
