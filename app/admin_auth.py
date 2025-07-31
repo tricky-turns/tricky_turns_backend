@@ -21,17 +21,21 @@ def log_admin_action(admin_username, action, target_table, target_id=None, notes
     )
 
 async def get_current_admin(session_id: str = Cookie(None)):
+    print("Session ID from cookie:", session_id)
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated as admin")
-    # Lookup session in DB, check expiry
     query = admin_sessions.select().where(admin_sessions.c.id == session_id)
     session = await database.fetch_one(query)
+    print("Session row from DB:", session)
     if not session or (session["expires_at"] and session["expires_at"] < datetime.utcnow()):
+        print("Session expired or not found:", session)
         raise HTTPException(status_code=401, detail="Session expired or invalid")
     admin = await database.fetch_one(admins.select().where(admins.c.id == session["admin_id"]))
+    print("Admin from session:", admin)
     if not admin:
         raise HTTPException(status_code=401, detail="Admin not found")
     return {"id": admin["id"], "username": admin["username"]}
+
 
 @router.post("/login")
 async def admin_login(data: dict, response: Response):
