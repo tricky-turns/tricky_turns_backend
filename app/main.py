@@ -13,7 +13,8 @@ from app.admin_routes import router as admin_router
 app = FastAPI()
 
 ALLOWED_ORIGINS = [
-    "https://tricky-turns-frontend-dev.vercel.app", "https://tricky-turns-admin.vercel.app"  # keep for dev if needed
+    "https://tricky-turns-frontend-dev.vercel.app", "https://tricky-turns-admin.vercel.app", "tricky-turns-admin-git-master-tricky-s-projects.vercel.app",
+"tricky-turns-admin-ihg108n7b-tricky-s-projects.vercel.app"  # keep for dev if needed
 ]
 # CORS setup
 app.add_middleware(
