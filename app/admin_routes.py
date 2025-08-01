@@ -22,11 +22,11 @@ router = APIRouter()
 
 ### -- USER & ADMIN MANAGEMENT ---
 
-@router.get("/admin/users")
+@router.get("/users")
 async def admin_list_users(admin=Depends(get_current_admin)):
     return await database.fetch_all(users.select())
 
-@router.post("/admin/users/ban")
+@router.post("/users/ban")
 async def admin_ban_user(data: AdminUserActionRequest, admin=Depends(get_current_admin)):
     username = data.username
     await database.execute(users.update().where(users.c.username == username).values(is_banned=True))
